@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OWCS_Info</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+            font-family: 'Arial', sans-serif;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .header {
+            color: white;
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 30px;
+            padding-left: 10px;
+        }
+
+        .upload-section {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px dashed #00d4ff;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 40px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .upload-section:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: #00ffff;
+        }
+
+        .upload-section input {
+            display: none;
+        }
+
+        .upload-label {
+            color: #00d4ff;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        .cards-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 30px;
+            padding: 10px;
+        }
+
+        .card {
+            background: #1a1d2e;
+            border: 3px solid #00d4ff;
+            border-radius: 30px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 212, 255, 0.3);
+        }
+
+        .status-indicator {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 40px;
+            height: 40px;
+            border: 3px solid white;
+            border-radius: 50%;
+            background: #1a1d2e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .status-indicator img {
+            width: 70%;
+            height: 70%;
+            object-fit: contain;
+        }
+
+        .player-image-container {
+            width: 180px;
+            height: 180px;
+            margin: 10px 0;
+            position: relative;
+        }
+
+        .hex-background {
+            width: 100%;
+            height: 100%;
+            clip-path: polygon(50% 0%, 95% 25%, 95% 75%, 50% 100%, 5% 75%, 5% 25%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .player-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .position {
+            color: white;
+            font-size: 16px;
+            margin: 15px 0 5px 0;
+            text-align: center;
+        }
+
+        .team {
+            color: #999;
+            font-size: 14px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .player-name {
+            color: #00d4ff;
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .chars-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .char-circle {
+            width: 60px;
+            height: 60px;
+            border: 3px solid white;
+            border-radius: 50%;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #0a0e27;
+        }
+
+        .char-circle img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .links-container {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .link-button {
+            padding: 8px 20px;
+            border: 2px solid white;
+            border-radius: 20px;
+            background: transparent;
+            color: white;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .link-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .link-button.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .no-data {
+            color: #999;
+            text-align: center;
+            font-size: 18px;
+            margin-top: 50px;
+            grid-column: 1 / -1;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">OWCS_Info</div>
+    
+    <div class="upload-section" onclick="document.getElementById('fileInput').click()">
+        <input type="file" id="fileInput" accept=".xlsx, .xls" onchange="handleFile(event)">
+        <label class="upload-label">📁 Excel 파일을 업로드하세요 (클릭 또는 드래그)</label>
+    </div>
+
+    <div class="cards-container" id="cardsContainer">
+        <div class="no-data">Excel 파일을 업로드하면 카드가 표시됩니다</div>
+    </div>
+
+    <script>
+        // 포지션별 아이콘 매핑 (여기서 수정 가능!)
+        const positionIcons = {
+            'tank': {
+                icon: 'images/icons/tank.png',
+                positions: ['Main Tank', 'Flex Tank']
+            },
+            'dps': {
+                icon: 'images/icons/dps.png',
+                positions: ['Main DPS','Flex DPS']
+            },
+            'support': {
+                icon: 'images/icons/support.png',
+                positions: ['Main Support', 'Flex Support']
+            },
+            'coach': {
+                icon: 'images/icons/coach.png',
+                positions: ['Coach', 'Head Coach/Coach', 'Main DPS/Coach']
+            }
+        };
+
+        // 포지션 이름으로 아이콘 찾기
+        function getIconForPosition(position) {
+            for (const role in positionIcons) {
+                const roleData = positionIcons[role];
+                // 대소문자 구분 없이 비교
+                if (roleData.positions.some(p => p.toLowerCase() === position.toLowerCase())) {
+                    return roleData.icon;
+                }
+            }
+            return null; // 매칭되는 아이콘이 없을 경우
+        }
+
+        function handleFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(firstSheet, {header: 1});
+                
+                displayCards(jsonData);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function displayCards(data) {
+            const container = document.getElementById('cardsContainer');
+            container.innerHTML = '';
+
+            // 첫 번째 행은 헤더이므로 건너뛰기
+            for (let i = 1; i < data.length; i++) {
+                const row = data[i];
+                
+                // 빈 행 건너뛰기
+                if (!row[0]) continue;
+
+                const name = row[0] || '';
+                const position = row[1] || '';
+                const team = row[2] || '';
+                const link01 = row[3] || '';
+                const link02 = row[4] || '';
+                const char01 = row[5] || '';
+                const char02 = row[6] || '';
+                const char03 = row[7] || '';
+                const bgColor = row[8] || '#ff6b6b';
+
+                const card = createCard(name, position, team, link01, link02, char01, char02, char03, bgColor);
+                container.appendChild(card);
+            }
+        }
+
+        function createCard(name, position, team, link01, link02, char01, char02, char03, bgColor) {
+            const card = document.createElement('div');
+            card.className = 'card';
+
+            // 포지션에 맞는 아이콘 찾기
+            const icon = getIconForPosition(position);
+
+            card.innerHTML = `
+                <div class="status-indicator">
+                    ${icon ? `<img src="${icon}" alt="${position}" onerror="this.style.display='none'">` : ''}
+                </div>
+                
+                <div class="player-image-container">
+                    <div class="hex-background" style="background-color: ${bgColor};">
+                        <img src="images/players/${name}.png" alt="${name}" class="player-image" 
+                             onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22%3E%3Crect fill=%22%23333%22 width=%22200%22 height=%22200%22/%3E%3Ctext fill=%22%23fff%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22%3E${name}%3C/text%3E%3C/svg%3E'">
+                    </div>
+                </div>
+
+                <div class="position">${position}</div>
+                <div class="team">(${team})</div>
+                <div class="player-name">${name}</div>
+
+                <div class="chars-container">
+                    ${char01 ? `<div class="char-circle"><img src="images/characters/${char01}.png" alt="${char01}" onerror="this.parentElement.style.display='none'"></div>` : ''}
+                    ${char02 ? `<div class="char-circle"><img src="images/characters/${char02}.png" alt="${char02}" onerror="this.parentElement.style.display='none'"></div>` : ''}
+                    ${char03 ? `<div class="char-circle"><img src="images/characters/${char03}.png" alt="${char03}" onerror="this.parentElement.style.display='none'"></div>` : ''}
+                </div>
+
+                <div class="links-container">
+                    ${link01 ? 
+                        `<a href="${link01}" target="_blank" class="link-button">LFT_Info</a>` : 
+                        `<span class="link-button disabled">LFT_Info</span>`
+                    }
+                    ${link02 ? 
+                        `<a href="${link02}" target="_blank" class="link-button">Liquipedia</a>` : 
+                        `<span class="link-button disabled">Liquipedia</span>`
+                    }
+                </div>
+            `;
+
+            return card;
+        }
+
+        // 드래그 앤 드롭 기능
+        const uploadSection = document.querySelector('.upload-section');
+        
+        uploadSection.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadSection.style.background = 'rgba(255, 255, 255, 0.2)';
+        });
+
+        uploadSection.addEventListener('dragleave', () => {
+            uploadSection.style.background = 'rgba(255, 255, 255, 0.1)';
+        });
+
+        uploadSection.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadSection.style.background = 'rgba(255, 255, 255, 0.1)';
+            
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                const input = document.getElementById('fileInput');
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                input.files = dataTransfer.files;
+                
+                handleFile({target: {files: [file]}});
+            }
+        });
+    </script>
+</body>
+</html>
