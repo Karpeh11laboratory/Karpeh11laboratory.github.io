@@ -17,6 +17,8 @@
             font-family: 'Arial', sans-serif;
             padding: 20px;
             min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
         .header {
@@ -27,37 +29,12 @@
             padding-left: 10px;
         }
 
-        .upload-section {
-            background: rgba(255, 255, 255, 0.1);
-            border: 2px dashed #00d4ff;
-            border-radius: 15px;
-            padding: 30px;
-            text-align: center;
-            margin-bottom: 40px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .upload-section:hover {
-            background: rgba(255, 255, 255, 0.15);
-            border-color: #00ffff;
-        }
-
-        .upload-section input {
-            display: none;
-        }
-
-        .upload-label {
-            color: #00d4ff;
-            font-size: 18px;
-            cursor: pointer;
-        }
-
         .cards-container {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 30px;
             padding: 10px;
+            flex: 1;
         }
 
         .card {
@@ -167,7 +144,7 @@
         .char-circle img {
             width: 100%;
             height: 100%;
-            object-fit: contain;
+            object-fit: cover;
         }
 
         .links-container {
@@ -208,18 +185,53 @@
             margin-top: 50px;
             grid-column: 1 / -1;
         }
+
+        .footer-message {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid #00d4ff;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 40px;
+            color: white;
+            text-align: center;
+        }
+
+        .footer-message h3 {
+            color: #00d4ff;
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+
+        .footer-message p {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #ccc;
+        }
+
+        .loading {
+            color: #00d4ff;
+            text-align: center;
+            font-size: 18px;
+            margin-top: 50px;
+            grid-column: 1 / -1;
+        }
     </style>
 </head>
 <body>
     <div class="header">OWCS_Info</div>
-    
-    <div class="upload-section" onclick="document.getElementById('fileInput').click()">
-        <input type="file" id="fileInput" accept=".xlsx, .xls" onchange="handleFile(event)">
-        <label class="upload-label">📁 Excel 파일을 업로드하세요 (클릭 또는 드래그)</label>
-    </div>
 
     <div class="cards-container" id="cardsContainer">
-        <div class="no-data">Excel 파일을 업로드하면 카드가 표시됩니다</div>
+        <div class="loading">데이터를 불러오는 중...</div>
+    </div>
+
+    <div class="footer-message">
+        <p>
+            프로필 사진 출처 : 나무위키, 리퀴피디아 / 모스트 출처 : 리퀴피디아<br>
+            데이터 출처 : 아이치 펜카페 - 아이치 턱 쪽쪽빨기, 제작자 : 김재현 / 최종 수정일 : 12월 10일<br>
+            빠르게 제작하기 위해서 AI의 도움을 받았습니다. 잘못된 정보, 개선사항이 있을시 감안하세요.<br>
+            3번 생각한 이후에도 말하고 싶은 내용이 있을시 smithkarpeh@gmail.com 주소로 메일 남겨주세요. 감사합니다.
+            
+        </p>
     </div>
 
     <script>
@@ -235,7 +247,7 @@
             },
             'support': {
                 icon: 'images/icons/support.png',
-                positions: ['Main Support', 'Flex Support']
+                positions: ['Main Support', 'Flex Support', 'Main/Flex Support']
             },
             'coach': {
                 icon: 'images/icons/coach.png',
@@ -255,20 +267,29 @@
             return null; // 매칭되는 아이콘이 없을 경우
         }
 
-        function handleFile(e) {
-            const file = e.target.files[0];
-            if (!file) return;
+        // 페이지 로드 시 자동으로 data.xlsx 파일 로드
+        window.addEventListener('DOMContentLoaded', function() {
+            loadExcelFile('data.xlsx');
+        });
 
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, {type: 'array'});
-                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                const jsonData = XLSX.utils.sheet_to_json(firstSheet, {header: 1});
-                
-                displayCards(jsonData);
-            };
-            reader.readAsArrayBuffer(file);
+        function loadExcelFile(filename) {
+            fetch(filename)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('data.xlsx 파일을 찾을 수 없습니다.');
+                    }
+                    return response.arrayBuffer();
+                })
+                .then(data => {
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, {header: 1});
+                    displayCards(jsonData);
+                })
+                .catch(error => {
+                    const container = document.getElementById('cardsContainer');
+                    container.innerHTML = `<div class="no-data">⚠️ ${error.message}<br>프로젝트 폴더에 data.xlsx 파일이 있는지 확인해주세요.</div>`;
+                });
         }
 
         function displayCards(data) {
@@ -294,6 +315,10 @@
 
                 const card = createCard(name, position, team, link01, link02, char01, char02, char03, bgColor);
                 container.appendChild(card);
+            }
+
+            if (container.children.length === 0) {
+                container.innerHTML = '<div class="no-data">데이터가 없습니다.</div>';
             }
         }
 
@@ -340,33 +365,6 @@
 
             return card;
         }
-
-        // 드래그 앤 드롭 기능
-        const uploadSection = document.querySelector('.upload-section');
-        
-        uploadSection.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadSection.style.background = 'rgba(255, 255, 255, 0.2)';
-        });
-
-        uploadSection.addEventListener('dragleave', () => {
-            uploadSection.style.background = 'rgba(255, 255, 255, 0.1)';
-        });
-
-        uploadSection.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadSection.style.background = 'rgba(255, 255, 255, 0.1)';
-            
-            const file = e.dataTransfer.files[0];
-            if (file) {
-                const input = document.getElementById('fileInput');
-                const dataTransfer = new DataTransfer();
-                dataTransfer.items.add(file);
-                input.files = dataTransfer.files;
-                
-                handleFile({target: {files: [file]}});
-            }
-        });
     </script>
 </body>
 </html>
